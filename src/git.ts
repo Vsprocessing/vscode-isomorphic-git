@@ -327,23 +327,27 @@ export class Git {
 	}
 
 	async clone(url: string, options: ICloneOptions, cancellationToken?: CancellationToken): Promise<string> {
-		const baseFolderName = options.targetName || decodeURI(url).replace(/[\/]+$/, '').replace(/^.*[\/\\]/, '').replace(/\.git$/, '') || 'repository';
-		let folderName = baseFolderName;
-		let folderPath = path.posix.join(options.parentPath, folderName);
-		let count = 1;
+		const folderName = options.targetName || decodeURI(url).replace(/[\/]+$/, '').replace(/^.*[\/\\]/, '').replace(/\.git$/, '') || 'repository';
+		const folderPath = path.posix.join(options.parentPath, folderName);
 
-		if (!options.targetName) {
-			while (count < 20 && await fs.exists(folderPath)) {
-				folderName = `${baseFolderName}-${count++}`;
-				folderPath = path.posix.join(options.parentPath, folderName);
-			}
+		// Like `git clone`: the chosen parent folder must exist; the repository folder is created,
+		// and cloning into an existing non-empty folder fails.
+		const parentStat = await fs.promises.stat(options.parentPath).catch(() => undefined);
+		if (!parentStat?.isDirectory()) {
+			throw new GitError({ message: `Folder '${options.parentPath}' does not exist.`, gitCommand: 'clone' });
+		}
+		const existing = await fs.promises.readdir(folderPath).catch(() => undefined);
+		if (existing && existing.length > 0) {
+			throw new GitError({ message: `destination path '${folderName}' already exists and is not an empty directory.`, stderr: `fatal: destination path '${folderName}' already exists and is not an empty directory.`, gitCommand: 'clone', exitCode: 128 });
 		}
 
 		const hooks = networkHooks();
 		hooks.log(`> git clone ${url} ${folderPath}`);
 		let previousProgress = 0;
 		await wrap('clone', async () => {
-			await fs.promises.mkdir(folderPath).catch(() => undefined);
+			if (!existing) {
+				await fs.promises.mkdir(folderPath);
+			}
 			await isogit.clone({
 				fs,
 				http: hooks.http,

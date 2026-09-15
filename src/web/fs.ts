@@ -1,11 +1,11 @@
 import type { PromiseFsClient } from "isomorphic-git";
 import * as path from "path";
-import { FileStat, FileType, Uri, workspace } from "vscode";
+import { FileStat, FileSystemError, FileType, Uri, workspace } from "vscode";
 
 type EncodingOptions = { encoding?: BufferEncoding } | BufferEncoding | undefined;
 
+/** `vscode.FileSystemError.code` to the Node.js error code isomorphic-git expects. */
 const errorCodes = new Map<string, string>([
-  ["EntryNotFound", "ENOENT"],
   ["FileNotFound", "ENOENT"],
   ["FileExists", "EEXIST"],
   ["FileIsADirectory", "EISDIR"],
@@ -167,27 +167,7 @@ export class FileSystem implements PromiseFsClient {
   }
 
   private nodeCode(error: unknown): string | undefined {
-    const candidate = error as { code?: string; name?: string; message?: string };
-    if (candidate?.code && errorCodes.has(candidate.code)) {
-      return errorCodes.get(candidate.code);
-    }
-    if (candidate?.name && errorCodes.has(candidate.name)) {
-      return errorCodes.get(candidate.name);
-    }
-    const fromMessage = [...errorCodes].find(([vscodeCode]) =>
-      candidate?.message?.includes(vscodeCode)
-    )?.[1];
-    if (fromMessage) {
-      return fromMessage;
-    }
-    // Errors crossing the extension host boundary can lose their code and keep only the message.
-    if (/does not exist|nonexistent|not found/i.test(candidate?.message ?? "")) {
-      return "ENOENT";
-    }
-    if (/already exists/i.test(candidate?.message ?? "")) {
-      return "EEXIST";
-    }
-    return undefined;
+    return error instanceof FileSystemError ? errorCodes.get(error.code) : undefined;
   }
 
   /** Maps an absolute POSIX path to its workspace URI (e.g. vscode-userdata:), or file: if none matches. */
