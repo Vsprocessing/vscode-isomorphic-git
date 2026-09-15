@@ -162,8 +162,9 @@ export class FileSystem implements PromiseFsClient {
     return error instanceof Error ? error : new Error(String(error));
   }
 
+  /** Whether an error (a vscode.FileSystemError, or one already converted by toNodeError) means "not found". */
   private isNotFound(error: unknown): boolean {
-    return this.nodeCode(error) === "ENOENT";
+    return (error as NodeJS.ErrnoException)?.code === "ENOENT" || this.nodeCode(error) === "ENOENT";
   }
 
   private nodeCode(error: unknown): string | undefined {
