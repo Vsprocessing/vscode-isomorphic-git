@@ -9,7 +9,7 @@ import { l10n, workspace, window, ProgressLocation, commands } from 'vscode';
 import { RepositoryCache, RepositoryCacheInfo } from './repositoryCache';
 import TelemetryReporter from './web/telemetry';
 import { Model } from './model';
-import { WEB_CLONE_ROOT, fileUri, gitFs } from './web/runtime';
+import { VIRTUAL_ROOT, fileUri, gitFs } from './web/runtime';
 
 type ApiPostCloneAction = 'none';
 enum PostCloneAction { Open, OpenNewWindow, AddToWorkspace, None }
@@ -57,9 +57,11 @@ export class CloneManager {
 
 	private async cloneRepository(url: string, parentPath?: string, options: { recursive?: boolean; ref?: string; postCloneAction?: ApiPostCloneAction } = {}): Promise<string | undefined> {
 		if (!parentPath) {
-			// Clones live in the browser's user data file system; there is no folder picker on the web.
-			parentPath = WEB_CLONE_ROOT;
-			await gitFs.promises.mkdir(parentPath).catch(() => undefined);
+			parentPath = await pickCloneDestination(url);
+			if (!parentPath) {
+				this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'no_directory' });
+				return;
+			}
 		}
 
 		try {
@@ -228,4 +230,42 @@ export class CloneManager {
 		}
 		return;
 	}
+}
+
+/**
+ * Asks where to clone: a virtual folder (vfs:, always available) or a local folder, which is only
+ * offered when the browser can open local folders. Returns the parent path for the clone.
+ */
+async function pickCloneDestination(url: string): Promise<string | undefined> {
+	const localSupported = workspace.fs.isWritableFileSystem('file') === true;
+	let destination: 'virtual' | 'local' = 'virtual';
+
+	if (localSupported) {
+		const virtual = { label: `$(folder-library) ${l10n.t('Virtual Folder')}`, description: 'vfs:/', detail: l10n.t('Stored in the browser; available on this device and browser'), destination: 'virtual' as const };
+		const local = { label: `$(folder) ${l10n.t('Local Folder...')}`, detail: l10n.t('A folder on this computer'), destination: 'local' as const };
+		const pick = await window.showQuickPick([virtual, local], { title: l10n.t('Clone {0}', url), placeHolder: l10n.t('Where should the repository be cloned?') });
+		if (!pick) {
+			return undefined;
+		}
+		destination = pick.destination;
+	}
+
+	if (destination === 'virtual') {
+		await workspace.fs.createDirectory(VIRTUAL_ROOT).then(undefined, () => undefined);
+		gitFs.addRoot(VIRTUAL_ROOT);
+		return VIRTUAL_ROOT.path;
+	}
+
+	const uris = await window.showOpenDialog({
+		canSelectFiles: false,
+		canSelectFolders: true,
+		canSelectMany: false,
+		title: l10n.t('Choose a folder to clone {0} into', url),
+		openLabel: l10n.t('Select as Repository Destination')
+	});
+	if (!uris || uris.length === 0) {
+		return undefined;
+	}
+	gitFs.addRoot(uris[0]);
+	return uris[0].path;
 }

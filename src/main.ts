@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { env, ExtensionContext, workspace, window, Disposable, commands, Uri, version as vscodeVersion, LogOutputChannel, l10n, LogLevel, extensions } from 'vscode';
+import { env, ExtensionContext, workspace, window, Disposable, commands, Uri, version as vscodeVersion, LogOutputChannel, l10n, LogLevel, extensions, FileType } from 'vscode';
 import { findGit, Git } from './git';
 import { Model } from './model';
 import { CommandCenter } from './commands';
@@ -19,7 +19,7 @@ import { GitPostCommitCommandsProvider } from './postCommitCommands';
 import { GitCommitInputBoxCodeActionsProvider, GitCommitInputBoxDiagnosticsManager } from './diagnostics';
 import { CloneManager } from './cloneManager';
 import { TelemetryReporter } from './web/telemetry';
-import { gitFs, setExtensionContext, setNetworkHooks, WEB_CLONE_ROOT } from './web/runtime';
+import { gitFs, LEGACY_CLONE_ROOT, setExtensionContext, setNetworkHooks, VIRTUAL_ROOT } from './web/runtime';
 import { http } from './web/http';
 import { GitHubAuthenticationProvider, GITHUB_SCOPES } from './web/githubAuth';
 import { GitHubAccountView } from './web/githubAccountView';
@@ -108,13 +108,13 @@ function createModel(context: ExtensionContext, logger: LogOutputChannel, askpas
 	model.onDidCloseRepository(onRepository, null, disposables);
 	onRepository();
 
-	// Remember clones so they can be re-added to the (temporary) web workspace after a reload.
+	// Remember repositories opened from virtual or local folders so they can be re-added to the
+	// (temporary) web workspace after a reload. Stored as URIs because the scheme matters.
 	model.onDidOpenRepository(repository => {
-		if (repository.root.startsWith(`${WEB_CLONE_ROOT}/`)) {
-			const known = context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, []);
-			if (!known.includes(repository.root)) {
-				context.globalState.update(CLONED_REPOSITORIES_KEY, [...known, repository.root]);
-			}
+		const uri = gitFs.uriForPath(repository.root).toString();
+		const known = context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, []);
+		if (!known.includes(uri)) {
+			context.globalState.update(CLONED_REPOSITORIES_KEY, [...known, uri]);
 		}
 	}, null, disposables);
 
@@ -140,17 +140,60 @@ function createModel(context: ExtensionContext, logger: LogOutputChannel, askpas
 	return { model, cloneManager, disposable: Disposable.from(...disposables) };
 }
 
+/** Moves clones from the old `vscode-userdata:/isomorphic-git` location into the virtual file system (once). */
+async function migrateLegacyClones(context: ExtensionContext, logger: LogOutputChannel): Promise<void> {
+	const entries = await workspace.fs.readDirectory(LEGACY_CLONE_ROOT).then(e => e, () => undefined);
+	if (!entries) {
+		return;
+	}
+	const moved = new Map<string, string>();
+	for (const [name, type] of entries) {
+		if ((type & FileType.Directory) === 0) {
+			continue;
+		}
+		const source = Uri.joinPath(LEGACY_CLONE_ROOT, name);
+		let target = Uri.joinPath(VIRTUAL_ROOT, name);
+		for (let i = 1; await workspace.fs.stat(target).then(() => true, () => false); i++) {
+			target = Uri.joinPath(VIRTUAL_ROOT, `${name}-${i}`);
+		}
+		try {
+			await workspace.fs.copy(source, target, { overwrite: false });
+			await workspace.fs.delete(source, { recursive: true, useTrash: false });
+			moved.set(source.toString(), target.toString());
+			logger.info(`[main] Moved ${source.toString()} to ${target.toString()}`);
+		} catch (err) {
+			logger.warn(`[main] Failed to move ${source.toString()} to the virtual file system: ${err}`);
+		}
+	}
+	await workspace.fs.delete(LEGACY_CLONE_ROOT, { recursive: true, useTrash: false }).then(undefined, () => undefined);
+
+	const folders = workspace.workspaceFolders ?? [];
+	const stale = folders.filter(folder => folder.uri.scheme === LEGACY_CLONE_ROOT.scheme && folder.uri.path.startsWith(`${LEGACY_CLONE_ROOT.path}/`));
+	for (const folder of [...stale].reverse()) {
+		workspace.updateWorkspaceFolders(folder.index, 1);
+	}
+	const known = context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, []).map(value => {
+		const legacyPath = value.startsWith('/') ? Uri.from({ scheme: LEGACY_CLONE_ROOT.scheme, path: value }).toString() : value;
+		return moved.get(legacyPath) ?? value;
+	});
+	await context.globalState.update(CLONED_REPOSITORIES_KEY, [...new Set([...known, ...moved.values()])]);
+}
+
 async function restoreClonedRepositories(context: ExtensionContext): Promise<void> {
 	const folders = workspace.workspaceFolders ?? [];
 	const existing: string[] = [];
 	const missing: Uri[] = [];
-	for (const root of context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, [])) {
-		if (!(await gitFs.exists(`${root}/.git/config`))) {
+	for (const value of context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, [])) {
+		if (value.startsWith('/')) {
+			continue; // legacy path entry, handled by migration
+		}
+		const uri = Uri.parse(value);
+		if (!(await workspace.fs.stat(Uri.joinPath(uri, '.git', 'config')).then(() => true, () => false))) {
 			continue;
 		}
-		existing.push(root);
-		const uri = gitFs.uriForPath(root);
-		if (!folders.some(folder => folder.uri.toString() === uri.toString())) {
+		gitFs.addRoot(uri);
+		existing.push(value);
+		if (!folders.some(folder => folder.uri.toString() === value)) {
 			missing.push(uri);
 		}
 	}
@@ -171,7 +214,7 @@ export async function activate(context: ExtensionContext): Promise<GitExtension>
 	disposables.push(logger.onDidChangeLogLevel(onDidChangeLogLevel));
 	onDidChangeLogLevel(logger.logLevel);
 
-	gitFs.addRoot(Uri.from({ scheme: 'vscode-userdata', path: WEB_CLONE_ROOT }));
+	gitFs.addRoot(VIRTUAL_ROOT);
 	await findGit([], () => true, logger);
 
 	const telemetryReporter = new TelemetryReporter();
@@ -205,6 +248,7 @@ export async function activate(context: ExtensionContext): Promise<GitExtension>
 			current = { model, disposable };
 			result.cloneManager = cloneManager;
 			result.model = model;
+			await migrateLegacyClones(context, logger);
 			await restoreClonedRepositories(context);
 		} else if (!signedIn && current) {
 			result.model = undefined;

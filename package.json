@@ -64,7 +64,8 @@
     }
   },
   "extensionDependencies": [
-    "vscode.git-base"
+    "vscode.git-base",
+    "vsprocessing.vscode-virtualfs"
   ],
   "contributes": {
     "commands": [
@@ -735,7 +736,7 @@
         "command": "git.stageSelectedRanges",
         "key": "ctrl+k ctrl+alt+s",
         "mac": "cmd+k cmd+alt+s",
-        "when": "editorTextFocus && resourceScheme =~ /^(file|vscode-userdata)$/"
+        "when": "editorTextFocus && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
       },
       {
         "command": "git.unstageSelectedRanges",
@@ -747,7 +748,7 @@
         "command": "git.revertSelectedRanges",
         "key": "ctrl+k ctrl+r",
         "mac": "cmd+k cmd+r",
-        "when": "editorTextFocus && resourceScheme =~ /^(file|vscode-userdata)$/"
+        "when": "editorTextFocus && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
       }
     ],
     "menus": {
@@ -774,11 +775,11 @@
         },
         {
           "command": "git.openFile",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/ && scmActiveResourceHasChanges"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && scmActiveResourceHasChanges"
         },
         {
           "command": "git.openHEADFile",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/ && scmActiveResourceHasChanges"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && scmActiveResourceHasChanges"
         },
         {
           "command": "git.openChange",
@@ -806,7 +807,7 @@
         },
         {
           "command": "git.stageSelectedRanges",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
         },
         {
           "command": "git.stageChange",
@@ -814,7 +815,7 @@
         },
         {
           "command": "git.revertSelectedRanges",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
         },
         {
           "command": "git.revertChange",
@@ -858,11 +859,11 @@
         },
         {
           "command": "git.rename",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/ && scmActiveResourceRepository"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && scmActiveResourceRepository"
         },
         {
           "command": "git.delete",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
         },
         {
           "command": "git.commit",
@@ -1002,7 +1003,7 @@
         },
         {
           "command": "git.ignore",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vscode-userdata)$/ && scmActiveResourceRepository"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && scmActiveResourceRepository"
         },
         {
           "command": "git.closeAllDiffEditors",
@@ -1825,27 +1826,27 @@
         {
           "command": "git.openChange",
           "group": "navigation@2",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && scmActiveResourceHasChanges && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && scmActiveResourceHasChanges && !isSessionsWindow"
         },
         {
           "command": "git.stage",
           "group": "2_git@1",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && git.activeResourceHasUnstagedChanges && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && git.activeResourceHasUnstagedChanges && !isSessionsWindow"
         },
         {
           "command": "git.unstage",
           "group": "2_git@2",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && git.activeResourceHasStagedChanges && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && !isInDiffEditor && !isMergeEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && git.activeResourceHasStagedChanges && !isSessionsWindow"
         },
         {
           "command": "git.stage",
           "group": "2_git@1",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && !isSessionsWindow"
         },
         {
           "command": "git.stageSelectedRanges",
           "group": "2_git@2",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && !isSessionsWindow"
         },
         {
           "command": "git.unstage",
@@ -1860,14 +1861,14 @@
         {
           "command": "git.revertSelectedRanges",
           "group": "2_git@5",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vscode-userdata)$/ && !isSessionsWindow"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/ && !isSessionsWindow"
         }
       ],
       "editor/context": [
         {
           "command": "git.stageSelectedRanges",
           "group": "2_git@1",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vscode-userdata)$/"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
         },
         {
           "command": "git.unstageSelectedRanges",
@@ -1877,7 +1878,7 @@
         {
           "command": "git.revertSelectedRanges",
           "group": "2_git@3",
-          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vscode-userdata)$/"
+          "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0 && isInDiffEditor && isInDiffRightEditor && !isEmbeddedDiffEditor && resourceScheme =~ /^(file|vfs|vscode-userdata)$/"
         }
       ],
       "editor/content": [

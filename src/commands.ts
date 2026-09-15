@@ -19,7 +19,7 @@ import { ApiRepository } from './api/api1';
 import { getRemoteSourceActions, pickRemoteSource } from './remoteSource';
 import { RemoteSourceAction } from './typings/git-base';
 import { CloneManager } from './cloneManager';
-import { WEB_CLONE_ROOT, fileUri, isWorkspaceFileUri } from './web/runtime';
+import { VIRTUAL_ROOT, fileUri, isWorkspaceFileUri } from './web/runtime';
 
 abstract class CheckoutCommandItem implements QuickPickItem {
 	abstract get label(): string;
@@ -1137,7 +1137,7 @@ export class CommandCenter {
 		}
 
 		if (!repositoryPath) {
-			const homeUri = fileUri(WEB_CLONE_ROOT);
+			const homeUri = VIRTUAL_ROOT;
 			const defaultUri = workspace.workspaceFolders && workspace.workspaceFolders.length > 0
 				? fileUri(workspace.workspaceFolders[0].uri.fsPath)
 				: homeUri;
@@ -1215,7 +1215,7 @@ export class CommandCenter {
 				canSelectFiles: false,
 				canSelectFolders: true,
 				canSelectMany: false,
-				defaultUri: fileUri(WEB_CLONE_ROOT),
+				defaultUri: VIRTUAL_ROOT,
 				openLabel: l10n.t('Open Repository')
 			});
 

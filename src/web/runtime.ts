@@ -8,8 +8,11 @@ import { FileSystem } from './fs';
 
 export const gitFs = new FileSystem();
 
-/** Parent folder for clones, in the browser's user data file system (`vscode-userdata:/isomorphic-git`). */
-export const WEB_CLONE_ROOT = '/isomorphic-git';
+/** Root of the virtual file system (`vfs:/`, provided by the vscode-virtualfs extension). */
+export const VIRTUAL_ROOT = Uri.from({ scheme: 'vfs', path: '/' });
+
+/** Where clones used to be stored before the virtual file system existed. */
+export const LEGACY_CLONE_ROOT = Uri.from({ scheme: 'vscode-userdata', path: '/isomorphic-git' });
 
 export interface NetworkHooks {
 	readonly http: HttpClient;
@@ -40,7 +43,7 @@ export function fileUri(path: string): Uri {
 
 /** Whether a URI belongs to a file system the git backend can read (anything but virtual git/document schemes). */
 export function isWorkspaceFileUri(uri: Uri): boolean {
-	return uri.scheme === 'file' || uri.scheme === 'vscode-userdata' || uri.scheme === 'tmp' || uri.scheme === 'vscode-vfs' || uri.scheme === 'memfs';
+	return uri.scheme === 'file' || uri.scheme === 'vfs' || uri.scheme === 'vscode-userdata' || uri.scheme === 'tmp' || uri.scheme === 'vscode-vfs' || uri.scheme === 'memfs';
 }
 
 let extensionContext: ExtensionContext | undefined;
