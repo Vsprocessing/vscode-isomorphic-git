@@ -37,6 +37,14 @@ export async function request({
   };
 }
 
+export async function proxiedFetch(
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string }
+): Promise<Response> {
+  await configureLibcurl();
+  return libcurl.fetch(url, init);
+}
+
 async function configureLibcurl(): Promise<void> {
   const configuredUrl = vscode.workspace
     .getConfiguration("isomorphic-git")

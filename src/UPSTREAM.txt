@@ -1,0 +1,1 @@
+ca425775e42 Revert "Optimize shared built-in extension dependencies (#318045)" (#319774)

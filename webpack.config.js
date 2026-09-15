@@ -3,33 +3,49 @@
 "use strict";
 
 const path = require("path");
-const { ProvidePlugin } = require("webpack");
+const fs = require("fs");
+const { DefinePlugin, ProvidePlugin } = require("webpack");
 
-/**@type {import('webpack').Configuration}*/
+// GITHUB_CLIENT_SECRET comes from the environment or a gitignored .env file next to this config.
+function readEnv(name) {
+  if (process.env[name]) {
+    return process.env[name];
+  }
+  const envFile = path.join(__dirname, ".env");
+  if (!fs.existsSync(envFile)) {
+    return "";
+  }
+  const match = fs.readFileSync(envFile, "utf8").match(new RegExp(`^\\s*${name}\\s*=\\s*(.*?)\\s*$`, "m"));
+  return match ? match[1].replace(/^(['"])(.*)\1$/, "$2") : "";
+}
+
+/** @type {import('webpack').Configuration} */
 const config = {
-  target: "webworker", // vscode extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
-  mode: "none", // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
-
+  target: "webworker",
+  mode: "none",
   entry: {
-    extension: "./src/extension.ts",
-  }, // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
+    main: "./src/main.ts",
+  },
   output: {
-    // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, "dist"),
     filename: "[name].js",
     libraryTarget: "commonjs2",
   },
   devtool: "nosources-source-map",
   externals: {
-    vscode: "commonjs vscode", // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    vscode: "commonjs vscode",
   },
   plugins: [
     new ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
     }),
+    new DefinePlugin({
+      __GITHUB_CLIENT_SECRET__: JSON.stringify(readEnv("GITHUB_CLIENT_SECRET")),
+      "process.platform": JSON.stringify("web"),
+      "process.env": JSON.stringify({}),
+    }),
   ],
   resolve: {
-    // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
     extensions: [".ts", ".js"],
     fallback: {
       path: require.resolve("path-browserify"),
@@ -38,15 +54,14 @@ const config = {
   module: {
     rules: [
       {
-        test: /\.(ts|js)$/,
+        test: /\.ts$/,
         exclude: /node_modules/,
-        use: [
-          {
-            loader: "ts-loader",
-          },
-        ],
+        use: [{ loader: "ts-loader", options: { transpileOnly: true } }],
       },
     ],
+  },
+  performance: {
+    hints: false,
   },
 };
 module.exports = config;

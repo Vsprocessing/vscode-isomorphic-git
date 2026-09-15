@@ -58,7 +58,7 @@ export class FileSystem implements PromiseFsClient {
 
   async readFile(filePath: string, options?: EncodingOptions) {
     const data = await this.runFs(() =>
-      workspace.fs.readFile(this.toUri(filePath))
+      workspace.fs.readFile(this.uriForPath(filePath))
     );
     if (this.encoding(options)?.replace("-", "") === "utf8") {
       return this.decoder.decode(data);
@@ -69,7 +69,7 @@ export class FileSystem implements PromiseFsClient {
   async writeFile(filePath: string, data: Uint8Array | string): Promise<void> {
     await this.runFs(() =>
       workspace.fs.writeFile(
-        this.toUri(filePath),
+        this.uriForPath(filePath),
         typeof data === "string" ? this.encoder.encode(data) : data
       )
     );
@@ -77,13 +77,13 @@ export class FileSystem implements PromiseFsClient {
 
   async unlink(filePath: string): Promise<void> {
     await this.runFs(() =>
-      workspace.fs.delete(this.toUri(filePath), { recursive: false })
+      workspace.fs.delete(this.uriForPath(filePath), { recursive: false })
     );
   }
 
   async readdir(filePath: string): Promise<string[]> {
     return (
-      await this.runFs(() => workspace.fs.readDirectory(this.toUri(filePath)))
+      await this.runFs(() => workspace.fs.readDirectory(this.uriForPath(filePath)))
     ).map(([name]) => name);
   }
 
@@ -100,18 +100,18 @@ export class FileSystem implements PromiseFsClient {
   }
 
   async mkdir(filePath: string): Promise<void> {
-    await this.runFs(() => workspace.fs.createDirectory(this.toUri(filePath)));
+    await this.runFs(() => workspace.fs.createDirectory(this.uriForPath(filePath)));
   }
 
   async rmdir(filePath: string): Promise<void> {
     await this.runFs(() =>
-      workspace.fs.delete(this.toUri(filePath), { recursive: false })
+      workspace.fs.delete(this.uriForPath(filePath), { recursive: false })
     );
   }
 
   async rename(oldPath: string, newPath: string): Promise<void> {
     await this.runFs(() =>
-      workspace.fs.rename(this.toUri(oldPath), this.toUri(newPath), {
+      workspace.fs.rename(this.uriForPath(oldPath), this.uriForPath(newPath), {
         overwrite: true,
       })
     );
@@ -119,7 +119,7 @@ export class FileSystem implements PromiseFsClient {
 
   async stat(filePath: string): Promise<GitStats> {
     return this.toStats(
-      await this.runFs(() => workspace.fs.stat(this.toUri(filePath)))
+      await this.runFs(() => workspace.fs.stat(this.uriForPath(filePath)))
     );
   }
 
@@ -174,12 +174,24 @@ export class FileSystem implements PromiseFsClient {
     if (candidate?.name && errorCodes.has(candidate.name)) {
       return errorCodes.get(candidate.name);
     }
-    return [...errorCodes].find(([vscodeCode]) =>
+    const fromMessage = [...errorCodes].find(([vscodeCode]) =>
       candidate?.message?.includes(vscodeCode)
     )?.[1];
+    if (fromMessage) {
+      return fromMessage;
+    }
+    // Errors crossing the extension host boundary can lose their code and keep only the message.
+    if (/does not exist|nonexistent|not found/i.test(candidate?.message ?? "")) {
+      return "ENOENT";
+    }
+    if (/already exists/i.test(candidate?.message ?? "")) {
+      return "EEXIST";
+    }
+    return undefined;
   }
 
-  private toUri(filePath: string): Uri {
+  /** Maps an absolute POSIX path to its workspace URI (e.g. vscode-userdata:), or file: if none matches. */
+  uriForPath(filePath: string): Uri {
     filePath = this.resolvePath(filePath);
     const roots = [
       ...this.roots.values(),

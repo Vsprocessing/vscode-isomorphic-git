@@ -1,27 +1,25 @@
 {
 	"compilerOptions": {
-		"module": "Node16",
-		"target": "es2022",
-		"outDir": "out",
-		"lib": [
-			"ES2022",
-			"DOM"
-		],
-		"moduleResolution": "Node16",
-		"types": [
-			"node",
-			"vscode"
-		],
-		"sourceMap": true,
-		"rootDir": "src",
-		"strict": false,
-		/* Additional Checks */
-		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
-		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
-		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
+		"esModuleInterop": true,
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"ignoreDeprecations": "6.0",
+		"strict": true,
+		"exactOptionalPropertyTypes": false,
+		"useUnknownInCatchVariables": false,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"forceConsistentCasingInFileNames": true,
+		"experimentalDecorators": true,
+		"skipLibCheck": true,
+		"rootDir": "./src",
+		"outDir": "./out",
+		"types": ["node"]
 	},
-	"exclude": [
-		"node_modules",
-		".vscode-test"
-	]
+	"include": ["src/**/*"]
 }
