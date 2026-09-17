@@ -239,27 +239,20 @@ export async function activate(context: ExtensionContext): Promise<GitExtension>
 		commands.registerCommand('isomorphic-git.githubSignOut', () => auth.removeAllSessions()),
 	);
 
-	// Git is only available while signed in to GitHub; signing out tears the model down.
-	const sync = async () => {
+	// Local git works signed out; a GitHub session is only needed to reach the network.
+	const { model, cloneManager, disposable: modelDisposable } = createModel(context, logger, askpass, telemetryReporter);
+	current = { model, disposable: modelDisposable };
+	result.cloneManager = cloneManager;
+	result.model = model;
+	await migrateLegacyClones(context, logger);
+	await restoreClonedRepositories(context);
+
+	const syncSignedInContext = async () => {
 		const signedIn = (await auth.getSessions(undefined)).length > 0;
 		await commands.executeCommand('setContext', SIGNED_IN_CONTEXT_KEY, signedIn);
-		if (signedIn && !current) {
-			const { model, cloneManager, disposable } = createModel(context, logger, askpass, telemetryReporter);
-			current = { model, disposable };
-			result.cloneManager = cloneManager;
-			result.model = model;
-			await migrateLegacyClones(context, logger);
-			await restoreClonedRepositories(context);
-		} else if (!signedIn && current) {
-			result.model = undefined;
-			result.cloneManager = undefined;
-			current.disposable.dispose();
-			current = undefined;
-			commands.executeCommand('setContext', 'gitOpenRepositoryCount', '0');
-		}
 	};
-	disposables.push(auth.onDidChangeSessions(() => void sync()), toDisposable(() => current?.disposable.dispose()));
-	await sync();
+	disposables.push(auth.onDidChangeSessions(() => void syncSignedInContext()), toDisposable(() => current?.disposable.dispose()));
+	await syncSignedInContext();
 
 	// GitHub repositories in the built-in Clone picker.
 	const gitBase = extensions.getExtension<GitBaseExtension>('vscode.git-base');
