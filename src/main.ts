@@ -179,10 +179,13 @@ async function migrateLegacyClones(context: ExtensionContext, logger: LogOutputC
 	await context.globalState.update(CLONED_REPOSITORIES_KEY, [...new Set([...known, ...moved.values()])]);
 }
 
+/**
+ * Registers the file system roots of known repositories and forgets the ones that are gone.
+ * Repositories are not added to the workspace: that would pull every earlier clone into the
+ * folder being opened, and turning a single folder into a workspace reloads the page.
+ */
 async function restoreClonedRepositories(context: ExtensionContext): Promise<void> {
-	const folders = workspace.workspaceFolders ?? [];
 	const existing: string[] = [];
-	const missing: Uri[] = [];
 	for (const value of context.globalState.get<string[]>(CLONED_REPOSITORIES_KEY, [])) {
 		if (value.startsWith('/')) {
 			continue; // legacy path entry, handled by migration
@@ -193,14 +196,8 @@ async function restoreClonedRepositories(context: ExtensionContext): Promise<voi
 		}
 		gitFs.addRoot(uri);
 		existing.push(value);
-		if (!folders.some(folder => folder.uri.toString() === value)) {
-			missing.push(uri);
-		}
 	}
 	await context.globalState.update(CLONED_REPOSITORIES_KEY, existing);
-	if (missing.length) {
-		workspace.updateWorkspaceFolders(folders.length, 0, ...missing.map(uri => ({ uri })));
-	}
 }
 
 export async function activate(context: ExtensionContext): Promise<GitExtension> {
